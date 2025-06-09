@@ -79,23 +79,39 @@ export default function AdminDashboard() {
       try {
         const token = localStorage.getItem("authToken");
         
-        // Fetch users with transaction counts
+        // Fetch users
         const usersRes = await axios.get("http://localhost:5000/api/users", { 
           headers: { Authorization: `Bearer ${token}` } 
         });
         const usersData = usersRes.data;
         
+        // Fetch transaction counts per user
+        const countsRes = await axios.get("http://localhost:5000/api/transactions/count-per-user", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const countsData = countsRes.data;
+        
+        // Create mapping from userId to transaction count
+        const countMap = {};
+        countsData.forEach(item => {
+          countMap[item.userId] = item.count;
+        });
+        
+        // Add transaction counts to users
+        const usersWithCounts = usersData.map(user => ({
+          ...user,
+          transactionCount: countMap[user._id] || 0
+        }));
         
         // Fetch all transactions
         const txRes = await axios.get("http://localhost:5000/api/transactions/all", { 
           headers: { Authorization: `Bearer ${token}` } 
         });
         const txData = txRes.data;
-        console.log(token)
 
         // Create user name mapping
         const userNameMap = {};
-        usersData.forEach(user => {
+        usersWithCounts.forEach(user => {
           userNameMap[user._id] = user.name;
         });
 
@@ -103,19 +119,6 @@ export default function AdminDashboard() {
         const transactionsWithNames = txData.map(tx => ({
           ...tx,
           userName: userNameMap[tx.userId] || 'Unknown'
-        }));
-
-        // Calculate transaction counts per user
-        const userTransactionCounts = {};
-        txData.forEach(transaction => {
-          const userId = transaction.userId;
-          userTransactionCounts[userId] = (userTransactionCounts[userId] || 0) + 1;
-        });
-
-        // Add transactionCount to each user
-        const usersWithCounts = usersData.map(user => ({
-          ...user,
-          transactionCount: userTransactionCounts[user._id] || 0
         }));
 
         setUsers(usersWithCounts);

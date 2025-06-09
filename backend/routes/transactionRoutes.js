@@ -68,4 +68,28 @@ router.get('/sales/monthly', authMiddleware, async (req, res) => {
     }
 });
 
+router.get('/count-per-user', authMiddleware, async (req, res) => {
+    try {
+        const transactionsPerUser = await Transaction.aggregate([
+            {
+                $group: {
+                    _id: "$userId",
+                    count: { $sum: 1 }
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    userId: "$_id",
+                    count: 1
+                }
+            }
+        ]);
+
+        res.json(transactionsPerUser);
+    } catch (err) {
+        console.error("Transaction count error:", err);
+        res.status(500).json({ error: "Failed to fetch transaction counts" });
+    }
+});
 module.exports = router;

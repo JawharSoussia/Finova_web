@@ -149,21 +149,22 @@ router.put("/:userId/status", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.params;
     const { status } = req.body;
+    console.log(status)
 
-    if (!['active', 'inactive'].includes(status)) {
+    if (!['active', 'inactive','blocked'].includes(status)) {
       return res.status(400).json({ error: "Invalid status" });
     }
-
+     const updateFields = { status };
+    
+    if (status === 'active') {
+      updateFields.lastActive = Date.now();
+    }
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      {
-        status,
-        lastActive: status === 'active' ? Date.now() : updatedUser.lastActive
-      },
+      updateFields,
       { new: true }
     ).select("-password");
-
-    if (!updatedUser) {
+if (!updatedUser) {
       return res.status(404).json({ error: "User not found" });
     }
 

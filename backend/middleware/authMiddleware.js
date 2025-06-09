@@ -18,6 +18,7 @@ module.exports = (req, res, next) => {
     req.user = {
       userId: decoded.userId.toString() // Ensure string format
     };
+ 
     
     next();
   } catch (err) {

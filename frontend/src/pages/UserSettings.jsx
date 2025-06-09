@@ -303,7 +303,7 @@ const fetchUserTransactions = async () => {
                   <td className="px-4 py-2">{user.name || ""}</td>
                   <td className="px-4 py-2">{user.email || ""}</td>
                   <td className="px-4 py-2">
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>{user.status || "unknown"}</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-gray-800'}`}>{user.status || "unknown"}</span>
                   </td>
                   <td className="px-4 py-2">{formatDate(user.joinDate || new Date())}</td>
                   <td className="px-4 py-2">{formatDate(user.lastActive || new Date())}</td>
