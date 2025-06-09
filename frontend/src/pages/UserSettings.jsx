@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios'; // Use axios for API calls
-import { Search, Edit, Trash, ChevronDown, ChevronUp, Filter, Download, Eye, Ban, Shield, AlertTriangle } from "lucide-react";
+import axios from 'axios';
+import { Search, Download, Ban, Lock, Unlock } from "lucide-react";
 import { useFinance } from "@/data/FinanceContext";
 import { toast } from 'react-hot-toast';
 
@@ -24,24 +24,42 @@ export default function UserSettings() {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/users', {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('authToken')}`,
-          },
+        const token = localStorage.getItem('authToken');
+        
+        // Fetch users
+        const usersRes = await axios.get('http://localhost:5000/api/users', {
+          headers: { Authorization: `Bearer ${token}` }
         });
-        const data = response.data;
-        const usersWithId = data.map(user => ({
-  ...user,
-  id: user._id // Use the _id from backend as id
-}));
-        setUsers(usersWithId);
-        setFilteredUsers(usersWithId);
+        const usersData = usersRes.data;
+        
+        // Fetch transaction counts per user
+        const countsRes = await axios.get(
+          'http://localhost:5000/api/transactions/count-per-user', 
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const countsData = countsRes.data;
+        
+        // Create mapping from userId to transaction count
+        const countMap = {};
+        countsData.forEach(item => {
+          countMap[item.userId] = item.count;
+        });
+        
+        // Add transaction counts to users
+        const usersWithCounts = usersData.map(user => ({
+          ...user,
+          id: user._id,
+          transactionCount: countMap[user._id] || 0
+        }));
 
-        // Update stats based on fetched data
+        setUsers(usersWithCounts);
+        setFilteredUsers(usersWithCounts);
+
+        // Update stats
         setUserStats({
-          total: data.length,
-          active: data.filter((u) => u.status === 'active').length,
-          inactive: data.filter((u) => u.status === 'inactive').length,
+          total: usersData.length,
+          active: usersData.filter(u => u.status === 'active').length,
+          inactive: usersData.filter(u => u.status === 'inactive').length,
         });
       } catch (error) {
         console.error('Error fetching users:', error);
@@ -52,38 +70,32 @@ export default function UserSettings() {
   }, []);
 
   // Fetch user transactions when a user is selected
-// Update the useEffect for fetching transactions
-useEffect(() => {
-  // Inside your fetchUserTransactions function
-const fetchUserTransactions = async () => {
-  if (!selectedUser) return;
+  useEffect(() => {
+    const fetchUserTransactions = async () => {
+      if (!selectedUser) return;
 
-  setLoading(true);
-  try {
-    console.log(`Fetching transactions for user ID: ${selectedUser.id}`);
-    const response = await axios.get(
-      `http://localhost:5000/api/users/${selectedUser.id}/transactions`,
-      {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('authToken')}`,
-        },
+      setLoading(true);
+      try {
+        const response = await axios.get(
+          `http://localhost:5000/api/users/${selectedUser.id}/transactions`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('authToken')}`,
+            },
+          }
+        );
+        
+        setUserTransactions(response.data);
+      } catch (error) {
+        console.error('Error fetching user transactions:', error);
+        setUserTransactions([]);
+      } finally {
+        setLoading(false);
       }
-    );
-    
-    console.log("Transactions response:", response);
-    console.log("Transactions data:", response.data);
-    
-    setUserTransactions(response.data);
-  } catch (error) {
-    console.error('Error fetching user transactions:', error.response || error);
-    setUserTransactions([]);
-  } finally {
-    setLoading(false);
-  }
-};
+    };
 
-  fetchUserTransactions();
-}, [selectedUser]);
+    fetchUserTransactions();
+  }, [selectedUser]);
 
   // Search and filter users
   useEffect(() => {
@@ -99,9 +111,7 @@ const fetchUserTransactions = async () => {
 
     // Apply status filter
     if (filterStatus !== 'all') {
-
       result = result.filter(user => user.status === filterStatus);
-
     }
 
     // Apply sorting
@@ -138,11 +148,7 @@ const fetchUserTransactions = async () => {
 
   // Handle user selection
   const handleSelectUser = (user) => {
-    console.log("Selected user:", user);
-    console.log("User ID type:", typeof user.id);
     setSelectedUser(selectedUser && selectedUser.id === user.id ? null : user);
-
-  
   };
 
   // Handle user status change
@@ -162,6 +168,7 @@ const fetchUserTransactions = async () => {
       setUsers(users.map(user =>
         user.id === userId ? { ...user, status: newStatus } : user
       ));
+      
       setFilteredUsers(filteredUsers.map(user =>
         user.id === userId ? { ...user, status: newStatus } : user
       ));
@@ -202,7 +209,6 @@ const fetchUserTransactions = async () => {
           total: updatedUsers.length,
           active: updatedUsers.filter(u => u.status === 'active').length,
           inactive: updatedUsers.filter(u => u.status === 'inactive').length,
-
         });
       } catch (error) {
         console.error('Error deleting user:', error);
@@ -237,7 +243,6 @@ const fetchUserTransactions = async () => {
     const link = document.createElement('a');
     link.setAttribute('href', url);
     link.setAttribute('download', 'user_data.csv');
-    link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -279,7 +284,7 @@ const fetchUserTransactions = async () => {
       {/* Users Table */}
       <div className="overflow-x-auto mb-8">
         {users.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">{loading ? "Loading users..." : "No users found."}</div>
+          <div className="text-center py-8 text-gray-500">Loading users...</div>
         ) : (
           <table className="min-w-full text-sm border rounded-lg overflow-hidden">
             <thead className="bg-gray-50">
@@ -303,7 +308,9 @@ const fetchUserTransactions = async () => {
                   <td className="px-4 py-2">{user.name || ""}</td>
                   <td className="px-4 py-2">{user.email || ""}</td>
                   <td className="px-4 py-2">
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-gray-800'}`}>{user.status || "unknown"}</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-gray-800'}`}>
+                      {user.status || "unknown"}
+                    </span>
                   </td>
                   <td className="px-4 py-2">{formatDate(user.joinDate || new Date())}</td>
                   <td className="px-4 py-2">{formatDate(user.lastActive || new Date())}</td>
@@ -371,13 +378,17 @@ const fetchUserTransactions = async () => {
                       (userTransactions).map(transaction => (
                         <tr key={transaction._id} className="hover:bg-gray-50">
                           <td className="px-4 py-2">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${transaction.type === 'income' ? 'bg-green-100 text-green-800' : transaction.type === 'expense' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>{transaction.type}</span>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${transaction.type === 'income' ? 'bg-green-100 text-green-800' : transaction.type === 'expense' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
+                              {transaction.type}
+                            </span>
                           </td>
                           <td className="px-4 py-2">{transaction.category}</td>
                           <td className="px-4 py-2">${(transaction.amount || 0).toFixed(2)}</td>
                           <td className="px-4 py-2">{formatDate(transaction.dateTime || new Date())}</td>
                           <td className="px-4 py-2">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${transaction.status === 'completed' ? 'bg-green-100 text-green-800' : transaction.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>{transaction.status || 'completed'}</span>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${transaction.status === 'completed' ? 'bg-green-100 text-green-800' : transaction.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>
+                              {transaction.status || 'completed'}
+                            </span>
                           </td>
                         </tr>
                       ))
@@ -396,8 +407,3 @@ const fetchUserTransactions = async () => {
     </div>
   );
 }
-
-// Mock components for the icons
-function User(props) { return <div {...props} />; }
-function CheckCircle(props) { return <div {...props} />; }
-function Clock(props) { return <div {...props} />; }

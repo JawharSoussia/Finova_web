@@ -100,10 +100,7 @@ router.get("/:userId/transactions", authMiddleware, async (req, res) => {
   try {
      console.log(`Authenticated user ID: ${req.user.userId}`);
     console.log(`Authenticated user role: ${req.user.role}`);
-    if (req.user.role !== 'admin') {
-      console.log("Access denied - Non-admin user attempted transaction access");
-      return res.status(403).json({ error: "Forbidden" });
-    }
+
     
     const { userId } = req.params;
     console.log(`Fetching transactions for user ID: ${userId}`);
